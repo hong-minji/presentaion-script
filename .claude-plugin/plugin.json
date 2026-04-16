@@ -1,0 +1,8 @@
+{
+  "name": "mj-pt",
+  "description": "HTML 프레젠테이션 슬라이드 + 발표자 뷰를 자동 생성하는 스킬. 브라우저만으로 발표 가능.",
+  "version": "1.0.0",
+  "author": {
+    "name": "hong-minji"
+  }
+}
