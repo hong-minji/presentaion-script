@@ -1,0 +1,1265 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 1 — AI 협업 워크스페이스 구축 & 첫 에이전트 제작</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-light: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #ffffff;
+      --text-secondary: #888;
+      --text-muted: #555;
+      --accent: #3b82f6;
+      --accent-light: #60a5fa;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --purple: #8b5cf6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans KR', sans-serif;
+      overflow: hidden;
+    }
+
+    .presentation {
+      position: relative;
+      width: 100vw; height: 100vh;
+      background: linear-gradient(160deg, #0d0d0d 0%, #090909 50%, #050505 100%);
+    }
+
+    /* ── Top Section Bar ── */
+    .sections-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; gap: 6px; justify-content: center; align-items: center;
+      padding: 12px 16px;
+      background: rgba(10,10,10,0.92); border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px); z-index: 30;
+    }
+    .section-chip {
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text-secondary); padding: 7px 12px; border-radius: 999px;
+      font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .section-chip:hover { color: var(--text); border-color: var(--accent); }
+    .section-chip.active {
+      color: var(--text); background: rgba(59,130,246,.22);
+      border-color: var(--accent); box-shadow: 0 0 0 1px rgba(59,130,246,.35) inset;
+    }
+
+    /* ── Slides ── */
+    .slides-wrap { width: 100%; height: 100%; padding-top: 58px; padding-bottom: 80px; }
+
+    .slide {
+      width: 100%; height: 100%; display: none;
+      padding: 60px 120px; overflow: auto; position: relative;
+    }
+    .slide.active {
+      display: flex; flex-direction: column; gap: 28px;
+      animation: fadeIn .3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Cover Slide ── */
+    .cover { justify-content: center; align-items: flex-start; }
+    .cover-title { font-size: 64px; line-height: 1.1; letter-spacing: -.02em; max-width: 1100px; }
+    .cover-subtitle { color: var(--accent); font-size: 30px; font-weight: 700; }
+    .cover-presenter { color: var(--text-secondary); font-size: 24px; }
+
+    /* ── Slide Content ── */
+    .slide-title { font-size: 46px; line-height: 1.15; letter-spacing: -.02em; }
+    .slide-subtitle { color: var(--text-secondary); font-size: 22px; line-height: 1.5; max-width: 1100px; }
+
+    /* ── Section Divider ── */
+    .slide--section {
+      align-items: center; justify-content: center; text-align: center;
+      background:
+        radial-gradient(circle at 15% 30%, rgba(59,130,246,.2), transparent 42%),
+        radial-gradient(circle at 85% 70%, rgba(59,130,246,.18), transparent 45%);
+    }
+    .section-number { font-size: 90px; font-weight: 900; color: rgba(59,130,246,.85); text-shadow: 0 0 30px rgba(59,130,246,.32); }
+    .section-divider-title { font-size: 56px; letter-spacing: -.03em; }
+    .section-divider-desc { font-size: 24px; color: var(--text-secondary); }
+
+    /* ── Demo Slide ── */
+    .slide--demo {
+      justify-content: center; align-items: center; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .slide--demo::before {
+      content: ''; position: absolute; inset: 40px; border-radius: 26px;
+      border: 1px solid rgba(59,130,246,.55);
+      box-shadow: 0 0 35px rgba(59,130,246,.2), inset 0 0 35px rgba(59,130,246,.12);
+      animation: pulseBorder 3.2s ease-in-out infinite; pointer-events: none;
+    }
+    @keyframes pulseBorder {
+      0%,100% { opacity: .55; transform: scale(1); }
+      50% { opacity: .95; transform: scale(1.01); }
+    }
+    .demo-emoji { font-size: 100px; filter: drop-shadow(0 0 16px rgba(59,130,246,.45)); }
+    .demo-title { font-size: 56px; line-height: 1.15; letter-spacing: -.02em; }
+    .demo-desc { font-size: 28px; line-height: 1.4; color: #d7e6ff; max-width: 1020px; }
+
+    /* ── Layout Helpers ── */
+    .grid { display: grid; gap: 20px; }
+    .grid--2 { grid-template-columns: repeat(2, 1fr); }
+    .grid--3 { grid-template-columns: repeat(3, 1fr); }
+    .grid--4 { grid-template-columns: repeat(4, 1fr); }
+
+    .card {
+      background: linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid var(--border); border-radius: 16px; padding: 24px;
+    }
+    .card-title { font-size: 24px; margin-bottom: 12px; line-height: 1.3; }
+    .card-desc { color: var(--text-secondary); font-size: 18px; line-height: 1.6; }
+
+    .highlight-box {
+      background: linear-gradient(120deg, rgba(59,130,246,.18), rgba(59,130,246,.08));
+      border: 1px solid rgba(59,130,246,.48); border-radius: 18px; padding: 22px 26px;
+    }
+    .highlight-box .text { font-size: 20px; line-height: 1.6; color: #e6f0ff; font-weight: 500; }
+
+    .flow { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+    .flow-item {
+      flex: 1; min-width: 140px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px; display: flex; flex-direction: column;
+      justify-content: center; text-align: center;
+    }
+    .flow-label { font-size: 20px; line-height: 1.4; font-weight: 700; }
+    .flow-arrow { align-self: center; font-size: 30px; color: var(--accent); padding: 0 2px; }
+
+    .kicker {
+      display: inline-flex; width: fit-content; padding: 5px 11px; border-radius: 999px;
+      border: 1px solid rgba(59,130,246,.45); color: #d8e7ff;
+      background: rgba(59,130,246,.16); font-size: 14px; font-weight: 600;
+    }
+
+    .mini-note { color: var(--text-muted); font-size: 16px; line-height: 1.6; }
+
+    .list { padding-left: 24px; display: flex; flex-direction: column; gap: 12px; }
+    .list li { font-size: 20px; line-height: 1.6; color: var(--text); }
+    .list li::marker { color: var(--accent); }
+
+    .compare { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .compare-item { border-radius: 14px; border: 1px solid var(--border); padding: 20px; background: var(--surface); }
+    .compare-label { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
+    .compare-text { font-size: 22px; line-height: 1.45; }
+    .compare-item.good { border-color: rgba(34,197,94,.45); background: linear-gradient(140deg, rgba(34,197,94,.14), rgba(20,20,20,.92)); }
+    .compare-item.bad { border-color: rgba(239,68,68,.42); background: linear-gradient(140deg, rgba(239,68,68,.13), rgba(20,20,20,.92)); }
+
+    .code-block {
+      background: #111; border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px 24px; font-family: 'JetBrains Mono', monospace; font-size: 15px;
+      line-height: 1.7; color: #ccc; overflow-x: auto;
+    }
+    .code-block .cmd { color: var(--success); }
+    .code-block .cmt { color: #666; }
+    .code-block .str { color: var(--warning); }
+
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .step { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 20px; }
+    .step-no {
+      display: inline-flex; width: 34px; height: 34px; border-radius: 50%;
+      align-items: center; justify-content: center;
+      background: rgba(59,130,246,.25); color: var(--accent); font-weight: 700; margin-bottom: 10px;
+    }
+    .step-title { font-size: 22px; margin-bottom: 8px; line-height: 1.35; }
+    .step-desc { color: var(--text-secondary); font-size: 18px; line-height: 1.55; }
+
+    .table-wrap { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); }
+    th, td { font-size: 18px; text-align: left; vertical-align: top; padding: 14px 16px; border-bottom: 1px solid var(--border); line-height: 1.5; }
+    th { background: var(--surface-light); color: #d6d6d6; font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
+
+    .time-badge {
+      display: inline-block; padding: 4px 10px; border-radius: 8px;
+      background: rgba(59,130,246,.2); color: var(--accent-light);
+      font-size: 14px; font-weight: 600; margin-bottom: 8px;
+    }
+    .time-badge.green { background: rgba(34,197,94,.2); color: #86efac; }
+    .time-badge.orange { background: rgba(245,158,11,.2); color: #fbbf24; }
+    .time-badge.purple { background: rgba(139,92,246,.2); color: #c4b5fd; }
+
+    .pyramid-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 16px; padding: 10px 0;
+    }
+    .pyramid-bar {
+      height: 38px; border-radius: 8px; display: flex; align-items: center;
+      padding: 0 16px; font-size: 15px; font-weight: 600; color: #fff;
+      transition: width .5s ease;
+    }
+    .pyramid-label { font-size: 16px; color: var(--text-secondary); min-width: 160px; text-align: right; }
+    .pyramid-pct { font-size: 16px; font-weight: 700; min-width: 50px; }
+
+    .center-content {
+      display: flex; justify-content: center; align-items: center;
+      text-align: center; width: 100%; height: 100%; flex-direction: column; gap: 20px;
+    }
+
+    .puzzle-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .puzzle-piece {
+      padding: 14px 18px; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--surface); font-size: 20px; font-weight: 600;
+    }
+    .puzzle-plus, .puzzle-eq { font-size: 28px; color: var(--accent); font-weight: 700; }
+
+    /* ── Bottom Controls ── */
+    .bottom-controls {
+      position: fixed; bottom: 14px; left: 0; right: 0;
+      display: flex; justify-content: center; align-items: center; gap: 16px;
+      z-index: 40; pointer-events: none;
+    }
+    .nav-btn, .slide-counter { pointer-events: auto; }
+    .nav-btn {
+      width: 50px; height: 50px; border-radius: 50%;
+      border: 1px solid var(--border); background: rgba(20,20,20,.85);
+      color: var(--text); font-size: 26px; cursor: pointer; transition: .2s;
+    }
+    .nav-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .slide-counter {
+      border: 1px solid var(--border); background: rgba(20,20,20,.85);
+      padding: 8px 18px; border-radius: 999px; color: var(--text-secondary);
+      font-size: 16px; min-width: 110px; text-align: center;
+    }
+    .progress-track { position: fixed; left: 0; right: 0; bottom: 0; height: 5px; background: #111; z-index: 45; }
+    .progress-bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #2563eb, #3b82f6 60%, #60a5fa);
+      box-shadow: 0 0 18px rgba(59,130,246,.6); transition: width .24s ease;
+    }
+
+    @keyframes spotlightGlow {
+      0% { box-shadow: 0 0 0 rgba(59,130,246,0); transform: scale(1); }
+      40% { box-shadow: 0 0 32px rgba(59,130,246,0.6), inset 0 0 16px rgba(59,130,246,0.15); transform: scale(1.03); }
+      100% { box-shadow: 0 0 0 rgba(59,130,246,0); transform: scale(1); }
+    }
+    .spotlight {
+      animation: spotlightGlow 1.5s ease;
+      border-radius: 12px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .pen-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 1400px) {
+      .slide { padding: 50px 60px; }
+      .cover-title { font-size: 52px; }
+      .slide-title { font-size: 40px; }
+      .grid--3, .steps { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 980px) {
+      .slide { padding: 40px 24px 70px; }
+      .grid--2, .grid--3, .grid--4, .compare, .steps { grid-template-columns: 1fr; }
+      .cover-title { font-size: 42px; }
+      .slide-title { font-size: 36px; }
+      .sections-bar { justify-content: flex-start; overflow-x: auto; padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="presentation">
+
+    <!-- ══════ Section Navigation ══════ -->
+    <div class="sections-bar" id="sectionsBar">
+      <button class="section-chip" data-slide="1">Opening</button>
+      <button class="section-chip" data-slide="5">사전과제</button>
+      <button class="section-chip" data-slide="8">AX사고방식</button>
+      <button class="section-chip" data-slide="15">폴더&마크다운</button>
+      <button class="section-chip" data-slide="20">라이브데모</button>
+      <button class="section-chip" data-slide="25">실습</button>
+      <button class="section-chip" data-slide="30">발표&마무리</button>
+    </div>
+
+    <div class="slides-wrap">
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- SECTION 1: OPENING (Slides 1-4)            -->
+      <!-- ═══════════════════════════════════════════ -->
+
+      <!-- Slide 1: Cover -->
+      <div class="slide cover" id="slide1">
+        <p class="kicker">Week 1 · 90분</p>
+        <h1 class="cover-title">AI 협업 워크스페이스 구축<br>& 첫 에이전트 제작</h1>
+        <p class="cover-subtitle">내 PC를 AI가 일하기 좋은 환경으로 세팅하기</p>
+        <p class="cover-presenter">홍민지 · 모두의연구소 AX팀 · 첫 AI 에이전트 만들기 스터디</p>
+      </div>
+
+      <!-- Slide 2: 스터디 소개 -->
+      <div class="slide" id="slide2">
+        <h2 class="slide-title">스터디 소개</h2>
+        <p class="slide-subtitle">4주 학습 + 1주 발표, 이렇게 진행됩니다</p>
+        <div class="grid grid--2">
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">💻</p>
+            <h3 class="card-title">4주간 주 90분 온라인 수업</h3>
+            <p class="card-desc">Google Meet으로 진행<br>강의 + 실습 + 발표</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">🎉</p>
+            <h3 class="card-title">5주차 발표 & 밋업 파티</h3>
+            <p class="card-desc">오프라인 2시간<br>모두의연구소 강남캠퍼스</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">☕</p>
+            <h3 class="card-title">1:1 오피스아워 (1회)</h3>
+            <p class="card-desc">온라인 또는 오프라인<br>개인 맞춤 피드백</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">💬</p>
+            <h3 class="card-title">디스코드 실시간 질문</h3>
+            <p class="card-desc">4주간 언제든 질문 가능<br>강사가 직접 답변</p>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">매주 <strong>숙제</strong>가 있고, <strong>강사 피드백</strong>을 드립니다. 직접 해봐야 실력이 늡니다!</p>
+        </div>
+      </div>
+
+      <!-- Slide 3: Today's Agenda -->
+      <div class="slide" id="slide3">
+        <h2 class="slide-title">오늘의 순서</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>활동</th><th>내용</th></tr></thead>
+            <tbody>
+              <tr><td><strong>사전과제 확인</strong></td><td>환경 세팅 점검 + 안 된 분 긴급 지원 + 자기소개</td></tr>
+              <tr><td><strong>강의 ①</strong></td><td>AX 사고방식 · 파이프라인 사고 (INPUT→PROCESS→OUTPUT)</td></tr>
+              <tr><td><strong>강의 ②</strong></td><td>폴더 구조 원칙 · 마크다운 기초 · Mermaid 소개</td></tr>
+              <tr><td><strong>라이브 데모</strong></td><td>Gemini CLI · Antigravity(VS Code) · 다채널 에이전트 시연</td></tr>
+              <tr><td><strong>실습</strong></td><td>Gemini CLI로 나의 업무 구조 → Mermaid/D2 시각화</td></tr>
+              <tr><td><strong>발표 & 공유</strong></td><td>각자 업무 구조 발표 + 피드백</td></tr>
+              <tr><td><strong>마무리</strong></td><td>숙제 안내 · Q&A</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Slide 4: Learning Pyramid -->
+      <div class="slide" id="slide4">
+        <h2 class="slide-title">왜 이렇게 수업하나요?</h2>
+        <p class="slide-subtitle">거꾸로학습법 — "가르치는 것"이 가장 높은 학습 효과를 만듭니다</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>학습 방법</th><th>기억 유지율</th><th style="width:45%">비율</th></tr></thead>
+            <tbody>
+              <tr><td>강의 듣기 (Lecture)</td><td>5%</td><td><div style="width:5%;min-width:20px;height:24px;border-radius:6px;background:#ef4444;"></div></td></tr>
+              <tr><td>읽기 (Reading)</td><td>10%</td><td><div style="width:10%;min-width:30px;height:24px;border-radius:6px;background:#f97316;"></div></td></tr>
+              <tr><td>시청각 (Audio-Visual)</td><td>20%</td><td><div style="width:20%;min-width:40px;height:24px;border-radius:6px;background:#eab308;"></div></td></tr>
+              <tr><td>시연 보기 (Demonstration)</td><td>30%</td><td><div style="width:30%;height:24px;border-radius:6px;background:#84cc16;"></div></td></tr>
+              <tr><td>토론 (Discussion)</td><td>50%</td><td><div style="width:50%;height:24px;border-radius:6px;background:#22c55e;"></div></td></tr>
+              <tr><td>직접 실습 (Practice)</td><td>75%</td><td><div style="width:75%;height:24px;border-radius:6px;background:#14b8a6;"></div></td></tr>
+              <tr style="background:rgba(59,130,246,.12);"><td><strong>다른 사람에게 가르치기 (Teaching)</strong></td><td><strong style="color:var(--accent);">90%</strong></td><td><div style="width:90%;height:24px;border-radius:6px;background:var(--accent);box-shadow:0 0 12px rgba(59,130,246,.5);"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="highlight-box">
+          <p class="text">그래서 오늘 수업에서 <strong>직접 만들고</strong>, <strong>서로 발표하는</strong> 시간을 갖습니다.<br>들으면 잊고, 하면 이해하고, 가르치면 체득합니다.</p>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- SECTION 2: 사전과제 확인 (Slides 5-7)       -->
+      <!-- ═══════════════════════════════════════════ -->
+
+      <!-- Slide 5: Section Divider -->
+      <div class="slide slide--section" id="slide5">
+        <p class="section-number">01</p>
+        <h2 class="section-divider-title">사전과제 확인</h2>
+        <p class="section-divider-desc">환경 세팅 완료 여부 점검 + 긴급 지원</p>
+      </div>
+
+      <!-- Slide 6: Setup Checklist -->
+      <div class="slide" id="slide6">
+        <h2 class="slide-title">환경 세팅 체크리스트</h2>
+        <p class="slide-subtitle">아래 항목이 모두 완료되었는지 함께 확인합니다</p>
+        <div class="grid grid--2">
+          <div class="card">
+            <h3 class="card-title">계정 & 도구 설치</h3>
+            <ul class="list">
+              <li>Google 계정 준비 완료</li>
+              <li>GitHub 가입 완료</li>
+              <li>VS Code 설치 완료</li>
+              <li>Antigravity 설치 완료</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3 class="card-title">CLI 도구 설치</h3>
+            <ul class="list">
+              <li>Node.js 설치 (<code>node --version</code>)</li>
+              <li>Gemini CLI 설치 (<code>gemini --version</code>)</li>
+              <li>Mac: Homebrew 설치</li>
+              <li>API 키 설정 (스터디용 공유 키)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">안 된 분은 손을 들어주세요! 함께 해결합니다.<br>에러 코드가 떴다면 — 복사해서 Gemini에게 물어보세요. 그것도 AI 활용입니다!</p>
+        </div>
+      </div>
+
+      <!-- Slide 7: Quick Troubleshoot + Intro -->
+      <div class="slide" id="slide7">
+        <h2 class="slide-title">빠른 트러블슈팅 & 자기소개</h2>
+        <div class="grid grid--2">
+          <div class="card">
+            <h3 class="card-title">자주 나오는 에러</h3>
+            <div class="table-wrap" style="margin-top:8px;">
+              <table>
+                <tr><td><code>command not found</code></td><td>터미널 재시작 (닫았다 다시 열기)</td></tr>
+                <tr><td><code>permission denied</code></td><td>앞에 <code>sudo</code> 붙여서 실행</td></tr>
+                <tr><td>설치가 안 됨</td><td>에러 메시지 복사 → AI에게 물어보기</td></tr>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">간단 자기소개</h3>
+            <ul class="list">
+              <li>이름과 하는 일</li>
+              <li>어떤 일이 가장 시간이 많이 걸리고 자동화하고 싶은지</li>
+            </ul>
+            <p class="mini-note" style="margin-top:12px;">디스코드 자유로운 소통 채널에 작성하고 발표해주세요!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- SECTION 3: AX 사고방식 (Slides 8-14)       -->
+      <!-- ═══════════════════════════════════════════ -->
+
+      <!-- Slide 8: Section Divider -->
+      <div class="slide slide--section" id="slide8">
+        <p class="section-number">02</p>
+        <h2 class="section-divider-title">AX 사고방식</h2>
+        <p class="section-divider-desc">AI를 도구가 아닌 핵심 파트너로</p>
+      </div>
+
+      <!-- Slide 9: What is AX -->
+      <div class="slide" id="slide9">
+        <h2 class="slide-title">AX (AI Transformation)란?</h2>
+        <p class="slide-subtitle">단순히 AI를 써보는 것에 그치지 않고, 업무 과정 전체를 AI와 협업하는 중심으로 바꾸는 것</p>
+        <div class="grid grid--3">
+          <div class="card">
+            <h3 class="card-title">기존: 챗봇 사용</h3>
+            <p class="card-desc">가끔 질문할 때만<br>검색창처럼 사용</p>
+          </div>
+          <div class="card" style="border-color: rgba(59,130,246,.5);">
+            <h3 class="card-title">전환점</h3>
+            <p class="card-desc">AI의 가능성을<br>직접 실험하고 확인</p>
+          </div>
+          <div class="card" style="background:rgba(59,130,246,.15); border-color:rgba(59,130,246,.5);">
+            <h3 class="card-title" style="color:var(--accent);">AX: 통합 협업</h3>
+            <p class="card-desc">모든 업무 프로세스에<br>AI를 녹여내기</p>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">"AI에게 일을 시키는 것"이 아니라 <strong>"AI와 함께 일하는 것"</strong></p>
+        </div>
+      </div>
+
+      <!-- Slide 10: AI as a Colleague -->
+      <div class="slide" id="slide10">
+        <h2 class="slide-title">AI를 동료로 대하기</h2>
+        <div class="compare">
+          <div class="compare-item bad">
+            <p class="compare-label">도구로 쓸 때</p>
+            <p class="compare-text">"카드뉴스 만들어줘"<br><span style="font-size:18px;color:var(--text-secondary);">일방적 지시 → 뽑기 운</span></p>
+          </div>
+          <div class="compare-item good">
+            <p class="compare-label">동료로 대할 때</p>
+            <p class="compare-text">"이 데이터를 보고 같이 기획해보자"<br><span style="font-size:18px;color:var(--text-secondary);">협업 → 일관된 품질</span></p>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">뭐든 AI로 해보려고 하세요. 처음엔 직접 하는 게 빠르더라도.<br>반복되면 생산성의 차이는 <strong>어마어마</strong>합니다.</p>
+        </div>
+      </div>
+
+      <!-- Slide 11: Why matters -->
+      <div class="slide" id="slide11">
+        <h2 class="slide-title">"왜 하는가"가 중요하다</h2>
+        <div class="compare">
+          <div class="compare-item bad">
+            <p class="compare-label">모호한 요청</p>
+            <p class="compare-text">"이 자료로 카드뉴스 하나 만들어줘"</p>
+          </div>
+          <div class="compare-item good">
+            <p class="compare-label">목적 중심 요청</p>
+            <p class="compare-text">"신규 강좌 수강생 유치를 위한<br>전략적 홍보 콘텐츠를 기획하자"</p>
+          </div>
+        </div>
+        <div class="card" style="margin-top:8px;">
+          <h3 class="card-title">주체성이 핵심</h3>
+          <p class="card-desc">AI는 맘대로 하는 경향이 있습니다. 방향은 <strong>내가</strong> 잡고, 실행은 AI가 맡습니다.<br><strong>What</strong> 전에 <strong>Why</strong>를 먼저 전달하세요.</p>
+        </div>
+      </div>
+
+      <!-- Slide 12: Pipeline Thinking -->
+      <div class="slide" id="slide12">
+        <h2 class="slide-title">파이프라인 사고</h2>
+        <p class="slide-subtitle">에이전트의 핵심은 업무를 하나의 흐름(Flow)으로 바라보는 것</p>
+        <div class="flow">
+          <div class="flow-item" style="background:#1f2937; border-color:#374151;">
+            <p class="flow-label">INPUT</p>
+            <p style="font-size:15px;color:var(--text-secondary);">재료 / 데이터 / 맥락</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-item" style="background:rgba(139,92,246,.2); border-color:rgba(139,92,246,.5);">
+            <p class="flow-label" style="color:#c4b5fd;">PROCESS</p>
+            <p style="font-size:15px;color:var(--text-secondary);">AI Agent 수행</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-item" style="background:rgba(34,197,94,.15); border-color:rgba(34,197,94,.4);">
+            <p class="flow-label" style="color:#86efac;">OUTPUT</p>
+            <p style="font-size:15px;color:var(--text-secondary);">결과물 / 가치</p>
+          </div>
+        </div>
+        <div class="highlight-box" style="background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.4);">
+          <p class="text" style="color:#e0d4ff;">"단순히 일을 '하는' 것이 아니라, 일이 자동으로 흘러가는 <strong>길(Pipeline)</strong>을 뚫는 것.<br>그것이 에이전트의 진짜 가치입니다."</p>
+        </div>
+      </div>
+
+      <!-- Slide 13: Pipeline Example -->
+      <div class="slide" id="slide13">
+        <h2 class="slide-title">업무를 파이프라인으로 설계</h2>
+        <div class="compare">
+          <div class="compare-item bad">
+            <p class="compare-label">수작업 방식</p>
+            <p class="compare-text">도자기를 매번 손으로 빚듯<br>비슷한 업무를 매번 다시 만듭니다</p>
+          </div>
+          <div class="compare-item good">
+            <p class="compare-label">파이프라인 방식</p>
+            <p class="compare-text">공장 라인을 설계하듯<br>한 번 만들면 재료만 바꿔 넣습니다</p>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">예시: 다채널 홍보 에이전트</h3>
+          <div class="flow" style="margin-top:12px;">
+            <div class="flow-item"><p class="flow-label">강의 정보<br><span style="font-size:14px;color:var(--text-secondary);">MD 파일 1개</span></p></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-item"><p class="flow-label">채널별 변환<br><span style="font-size:14px;color:var(--text-secondary);">톤·형식 자동 조정</span></p></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-item"><p class="flow-label">11개 채널 홍보문구<br><span style="font-size:14px;color:var(--text-secondary);">인스타·블로그·링크드인…</span></p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 14: AX Summary -->
+      <div class="slide" id="slide14">
+        <h2 class="slide-title">AX 사고방식 정리</h2>
+        <div class="grid grid--3">
+          <div class="card" style="text-align:center;">
+            <p style="font-size:48px;margin-bottom:12px;">🤖</p>
+            <h3 class="card-title" style="color:var(--warning);">AI = 파트너</h3>
+            <p class="card-desc">도구가 아닌 협업 파트너</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:48px;margin-bottom:12px;">🧠</p>
+            <h3 class="card-title" style="color:var(--warning);">Second Brain</h3>
+            <p class="card-desc">내 뇌의 한계를 AI로 확장</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:48px;margin-bottom:12px;">🔗</p>
+            <h3 class="card-title" style="color:var(--warning);">파이프라인</h3>
+            <p class="card-desc">INPUT → AI → OUTPUT<br>흐름으로 설계</p>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">자동화하고 싶은 반복 업무를 하나 떠올려 보세요.<br>① 뭘 넣을 건가(입력) ② 어떻게 바꿀 건가(처리) ③ 뭘 받고 싶은가(출력)<br>이게 에이전트의 출발점입니다.</p>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- SECTION 4: 폴더 구조 & 마크다운 (Slides 15-19) -->
+      <!-- ═══════════════════════════════════════════ -->
+
+      <!-- Slide 15: Section Divider -->
+      <div class="slide slide--section" id="slide15">
+        <p class="section-number">03</p>
+        <h2 class="section-divider-title">AI 친화적 환경 만들기</h2>
+        <p class="section-divider-desc">폴더 구조 · 마크다운 · Mermaid</p>
+      </div>
+
+      <!-- Slide 16: Folder Structure -->
+      <div class="slide" id="slide16">
+        <h2 class="slide-title">AI가 잘 일하는 폴더 구조</h2>
+        <p class="slide-subtitle">AI에게 좋은 결과를 받으려면, 먼저 내 업무를 잘 정리해야 합니다</p>
+        <div class="grid grid--2">
+          <div class="code-block">
+<span class="str">📁 my-project/</span>
+
+├── <span class="cmd">input/</span>      <span class="cmt"># 원본 자료 (재료)</span>
+
+├── <span class="cmd">output/</span>     <span class="cmt"># AI가 만든 결과물</span>
+
+├── <span class="cmd">reference/</span>  <span class="cmt"># 참고 샘플·가이드</span>
+
+└── <span class="cmd">PRD.md</span>      <span class="cmt"># 목적과 요구사항</span>
+          </div>
+          <div class="card">
+            <h3 class="card-title">폴더 구조 3원칙</h3>
+            <ul class="list">
+              <li><strong>의미 있는 폴더명</strong> — 폴더명만으로 내용 유추 가능</li>
+              <li><strong>한 파일 = 한 주제</strong> — AI 인용 최적화</li>
+              <li><strong>영어 + 대시(-)</strong> — 시스템 오류 방지</li>
+            </ul>
+          </div>
+        </div>
+        <p class="mini-note">Tip: 폴더명은 한글보다 <code>영문-대시</code> 형태가 안전합니다. 예: <code>card-news-agent</code></p>
+      </div>
+
+      <!-- Slide 17: Markdown Basics -->
+      <div class="slide" id="slide17">
+        <h2 class="slide-title">마크다운(Markdown) 기초</h2>
+        <p class="slide-subtitle">AI가 가장 잘 이해하는 텍스트 포맷 — 노션을 쓰고 계시다면 이미 쓰고 있는 겁니다!</p>
+        <div class="grid grid--2">
+          <div class="code-block">
+<span class="str"># 제목 1 (가장 큰 제목)</span>
+<span class="str">## 제목 2</span>
+<span class="str">### 제목 3</span>
+
+<span class="cmd">**굵게**</span>  <span class="cmd">*기울임*</span>
+
+- 목록 항목 1
+- 목록 항목 2
+
+1. 번호 목록 1
+2. 번호 목록 2
+
+| 이름 | 역할 |
+|------|------|
+| 민지 | 마케터 |
+          </div>
+          <div class="card">
+            <h3 class="card-title">왜 마크다운인가?</h3>
+            <ul class="list">
+              <li><strong>AI 기본 언어</strong> — 모든 AI가 학습한 표준</li>
+              <li><strong>가볍고 빠름</strong> — 어디서나 열림 (.md)</li>
+              <li><strong>범용 호환</strong> — GitHub, Notion, VS Code</li>
+              <li><strong>버전 관리</strong> — "최종_진짜최종" 탈출</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 18: Mermaid in VS Code -->
+      <div class="slide" id="slide18">
+        <h2 class="slide-title">VS Code에서 Mermaid 사용하기</h2>
+        <p class="slide-subtitle">확장 하나만 설치하면 마크다운 안에서 다이어그램을 바로 그릴 수 있습니다</p>
+        <div class="grid grid--2">
+          <div class="card">
+            <h3 class="card-title">설치 방법</h3>
+            <ul class="list">
+              <li>VS Code에서 확장(Extensions) 열기</li>
+              <li><strong>Markdown Preview Enhanced</strong> 검색 → 설치</li>
+              <li><code>Cmd/Ctrl + Shift + V</code>로 미리보기</li>
+            </ul>
+          </div>
+          <div class="code-block">
+<span class="cmt"># .md 파일에 코드블록으로 작성</span>
+
+<span class="str">```mermaid</span>
+<span class="cmd">graph LR</span>
+  A[기획] --> B[초안]
+  B --> C[검토]
+  C --> D[배포]
+<span class="str">```</span>
+
+<span class="cmt"># Cmd/Ctrl + Shift + V 로 미리보기!</span>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">Mermaid = 텍스트로 그리는 다이어그램. 코딩이 아니라 <strong>구조를 글로 적는 것</strong>입니다.</p>
+        </div>
+      </div>
+
+      <!-- Slide 19: Mermaid Examples -->
+      <div class="slide" id="slide19">
+        <h2 class="slide-title">Mermaid 예시 — 업무 흐름도</h2>
+        <div class="grid grid--2">
+          <div class="code-block">
+<span class="cmt"># 플로우차트</span>
+<span class="str">```mermaid</span>
+<span class="cmd">graph TD</span>
+  A[강의 정보 입력] --> B[AI 분석]
+  B --> C{채널 선택}
+  C --> D[인스타그램]
+  C --> E[블로그]
+  C --> F[링크드인]
+  D --> G[홍보 콘텐츠 완성]
+  E --> G
+  F --> G
+<span class="str">```</span>
+          </div>
+          <div class="code-block">
+<span class="cmt"># 마인드맵</span>
+<span class="str">```mermaid</span>
+<span class="cmd">mindmap</span>
+  root((내 업무))
+    기획
+      리서치
+      브레인스토밍
+      기획서 작성
+    콘텐츠 제작
+      카피라이팅
+      디자인 의뢰
+      검수
+    배포
+      SNS 업로드
+      성과 분석
+<span class="str">```</span>
+          </div>
+        </div>
+        <p class="mini-note">실습 시간에 자기 업무 구조를 Mermaid로 직접 그려볼 겁니다!</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- SECTION 5: 라이브 데모 (Slides 20-24)       -->
+      <!-- ═══════════════════════════════════════════ -->
+
+      <!-- Slide 20: Section Divider -->
+      <div class="slide slide--section" id="slide20">
+        <p class="section-number">04</p>
+        <h2 class="section-divider-title">라이브 데모</h2>
+        <p class="section-divider-desc">직접 보는 것이 백 마디보다 낫습니다</p>
+      </div>
+
+      <!-- Slide 21: VS Code & Antigravity -->
+      <div class="slide" id="slide21">
+        <h2 class="slide-title">코드편집기 = 이미 아는 것들의 조합</h2>
+        <p class="slide-subtitle">새로운 도구가 아니라, 익숙한 것들이 한 화면에 모인 것입니다.</p>
+        <div class="puzzle-row">
+          <div class="puzzle-piece">📁 파일 탐색기<br><span class="mini-note">Finder, 윈도우 탐색기</span></div>
+          <div class="puzzle-plus">+</div>
+          <div class="puzzle-piece">✏️ 메모장<br><span class="mini-note">텍스트 작성 도구</span></div>
+          <div class="puzzle-plus">+</div>
+          <div class="puzzle-piece">⬛ 터미널<br><span class="mini-note">명령어 입력 화면</span></div>
+          <div class="puzzle-eq">=</div>
+          <div class="puzzle-piece" style="border-color:rgba(59,130,246,.5);color:#d9e7ff;">💻 코드편집기</div>
+        </div>
+        <div class="grid grid--2" style="margin-top:12px;">
+          <div class="card">
+            <h3 class="card-title">VS Code</h3>
+            <p class="card-desc">Microsoft 무료 편집기. 전 세계 개발자 70%+ 사용.<br>Copilot 무료 플랜으로 AI 보조 + 다양한 확장 기능.</p>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Antigravity</h3>
+            <p class="card-desc">Google의 AI-First IDE. VS Code 기반.<br>Gemini 무료 내장 + 에이전트 사이드바 + Manager View.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 22: Demo Gemini CLI -->
+      <div class="slide slide--demo" id="slide22">
+        <p class="demo-emoji">🎬</p>
+        <h2 class="demo-title">Gemini CLI 사용해보기</h2>
+        <p class="demo-desc">터미널에서 <code style="background:rgba(255,255,255,.1);padding:4px 10px;border-radius:6px;">gemini</code> 입력 → 자연어로 대화<br>"이 폴더 안에 있는 파일들을 정리해줘"</p>
+      </div>
+
+      <!-- Slide 23: Demo Multi-channel Agent -->
+      <div class="slide slide--demo" id="slide23">
+        <p class="demo-emoji">🎬</p>
+        <h2 class="demo-title">다채널 홍보 에이전트 시연</h2>
+        <p class="demo-desc">정보 하나 넣으면 11개 채널 콘텐츠가 자동으로 만들어집니다.<br>INPUT(강의 정보 MD) → PROCESS(채널별 변환) → OUTPUT(11개 홍보문구)</p>
+      </div>
+
+      <!-- Slide 24: What we saw -->
+      <div class="slide" id="slide24">
+        <h2 class="slide-title">데모에서 본 것 정리</h2>
+        <div class="grid grid--3">
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">⚡</p>
+            <h3 class="card-title">속도</h3>
+            <p class="card-desc">10분이면 완성.<br>내가 쓰는 시간은 1분도 안 됨.</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">🎯</p>
+            <h3 class="card-title">일관성</h3>
+            <p class="card-desc">매번 같은 품질.<br>컨디션에 흔들리지 않음.</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">🔄</p>
+            <h3 class="card-title">확장성</h3>
+            <p class="card-desc">하나 만들면 다른 업무에도<br>복제·응용 가능.</p>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">에이전트는 한 번에 안 돼요. 만들고 → 테스트하고 → 고치고. 이 반복이 전부예요.<br>근데 한 번만 해보면 "아 되는구나" 싶은 순간이 옵니다.</p>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- SECTION 6: 실습 (Slides 25-29)              -->
+      <!-- ═══════════════════════════════════════════ -->
+
+      <!-- Slide 25: Section Divider -->
+      <div class="slide slide--section" id="slide25">
+        <p class="section-number">05</p>
+        <h2 class="section-divider-title">실습 시간</h2>
+        <p class="section-divider-desc">Gemini CLI로 나의 업무 구조를 시각화합니다</p>
+      </div>
+
+      <!-- Slide 26: Exercise Instructions -->
+      <div class="slide" id="slide26">
+        <h2 class="slide-title">실습: 나의 업무 구조 시각화</h2>
+        <p class="slide-subtitle">Gemini CLI와 대화하면서 자기 업무의 흐름을 Mermaid 다이어그램으로 만듭니다</p>
+        <div class="steps">
+          <article class="step">
+            <span class="step-no">1</span>
+            <h3 class="step-title">Gemini CLI 실행</h3>
+            <p class="step-desc">터미널에서 <code>gemini</code> 입력.<br>VS Code 또는 Antigravity 어디서든 OK.</p>
+          </article>
+          <article class="step">
+            <span class="step-no">2</span>
+            <h3 class="step-title">업무 구조 대화</h3>
+            <p class="step-desc">"나는 마케터인데, 내 주요 업무 흐름을 정리해줘. 질문을 통해 파악해줘"</p>
+          </article>
+          <article class="step">
+            <span class="step-no">3</span>
+            <h3 class="step-title">Mermaid로 시각화</h3>
+            <p class="step-desc">"이 업무 흐름을 Mermaid 다이어그램으로 만들어줘"</p>
+          </article>
+        </div>
+      </div>
+
+      <!-- Slide 27: Exercise Prompts -->
+      <div class="slide" id="slide27">
+        <h2 class="slide-title">실습 프롬프트 예시</h2>
+        <div class="grid grid--2">
+          <div class="code-block">
+<span class="cmt"># Step 1: 업무 파악 대화</span>
+<span class="str">"나는 [직업/역할]이야.
+내 주요 업무를 파악해서 정리하고 싶어.
+나한테 질문을 통해 업무 흐름을
+파악해줘."</span>
+
+<span class="cmt"># Step 2: Mermaid 시각화</span>
+<span class="str">"지금까지 파악한 내 업무 흐름을
+Mermaid 플로우차트로 만들어줘.
+graph TD 형식으로."</span>
+          </div>
+          <div class="code-block">
+<span class="cmt"># Step 3: D2 시각화 (선택)</span>
+<span class="str">"같은 업무 흐름을 D2 다이어그램
+문법으로도 만들어줘."</span>
+
+<span class="cmt"># D2 문법 예시:</span>
+<span class="cmd">기획</span> -> <span class="cmd">초안 작성</span>
+<span class="cmd">초안 작성</span> -> <span class="cmd">검토</span>
+<span class="cmd">검토</span> -> <span class="cmd">배포</span>
+
+<span class="cmt"># D2는 https://d2lang.com 에서
+# 미리보기 가능!</span>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">완벽하지 않아도 됩니다! AI와 대화하면서 점점 구체화하세요.<br>"나랑 대화 많이 해줘" 하면 AI가 꼼꼼하게 질문합니다.</p>
+        </div>
+      </div>
+
+      <!-- Slide 28: Mermaid in VS Code -->
+      <div class="slide" id="slide28">
+        <h2 class="slide-title">만든 Mermaid를 VS Code에서 보기</h2>
+        <div class="steps">
+          <article class="step">
+            <span class="step-no">1</span>
+            <h3 class="step-title">MD 파일 만들기</h3>
+            <p class="step-desc">VS Code에서 <code>my-workflow.md</code> 파일 생성</p>
+          </article>
+          <article class="step">
+            <span class="step-no">2</span>
+            <h3 class="step-title">Mermaid 코드 붙이기</h3>
+            <p class="step-desc">Gemini가 만들어준 Mermaid 코드를<br>코드블록 안에 붙여넣기</p>
+          </article>
+          <article class="step">
+            <span class="step-no">3</span>
+            <h3 class="step-title">미리보기</h3>
+            <p class="step-desc"><code>Cmd/Ctrl + Shift + V</code>로<br>다이어그램 확인!</p>
+          </article>
+        </div>
+        <div class="card" style="margin-top:8px;">
+          <h3 class="card-title">막히면?</h3>
+          <p class="card-desc">• 손을 들어주세요! 브레이크아웃 룸으로 도와드립니다.<br>• 에러 메시지를 그대로 복사해서 Gemini에게 물어보세요 — 그것도 학습입니다!<br>• "완성"보다 "실행"에 초점. 일단 돌아가게 만드는 것이 목표입니다.</p>
+        </div>
+      </div>
+
+      <!-- Slide 29: Practice Timer -->
+      <div class="slide" id="slide29">
+        <div class="center-content">
+          <p class="kicker" style="font-size:18px;">실습 중</p>
+          <h2 style="font-size:56px;">Gemini CLI와 대화하며<br>나의 업무 구조를 시각화하세요</h2>
+          <p style="font-size:24px;color:var(--text-secondary);">20분간 자유롭게 진행합니다</p>
+          <div class="grid grid--3" style="max-width:800px;margin-top:20px;">
+            <div class="card" style="text-align:center;">
+              <p style="font-size:28px;">💬</p>
+              <p class="card-desc">Gemini와 대화</p>
+            </div>
+            <div class="card" style="text-align:center;">
+              <p style="font-size:28px;">📊</p>
+              <p class="card-desc">Mermaid로 시각화</p>
+            </div>
+            <div class="card" style="text-align:center;">
+              <p style="font-size:28px;">📄</p>
+              <p class="card-desc">MD 파일로 저장</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- SECTION 7: 발표 & 마무리 (Slides 30-37)     -->
+      <!-- ═══════════════════════════════════════════ -->
+
+      <!-- Slide 30: Section Divider -->
+      <div class="slide slide--section" id="slide30">
+        <p class="section-number">06</p>
+        <h2 class="section-divider-title">발표 & 마무리</h2>
+        <p class="section-divider-desc">결과물 공유 · 숙제 안내</p>
+      </div>
+
+      <!-- Slide 31: Presentation Time -->
+      <div class="slide" id="slide31">
+        <h2 class="slide-title">결과물 공유 & 발표</h2>
+        <p class="slide-subtitle">만든 업무 구조 다이어그램을 화면 공유로 발표해주세요!</p>
+        <div class="grid grid--2">
+          <div class="card">
+            <h3 class="card-title">발표 가이드 (1~2분)</h3>
+            <ul class="list">
+              <li>나의 직업/역할 한 줄 소개</li>
+              <li>업무 구조를 어떻게 정리했는지</li>
+              <li>Gemini와 대화하면서 느낀 점</li>
+              <li>이 구조에서 자동화하고 싶은 부분</li>
+            </ul>
+          </div>
+          <div class="card" style="background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.4);">
+            <h3 class="card-title" style="color:var(--accent);">왜 발표하나요?</h3>
+            <p class="card-desc" style="font-size:20px;line-height:1.7;">
+              아까 본 거꾸로학습법 기억나시죠?<br><br>
+              <strong>듣기: 5%</strong> 기억<br>
+              <strong>직접 하기: 75%</strong> 기억<br>
+              <strong style="color:var(--accent);">가르치기(발표): 90%</strong> 기억<br><br>
+              발표가 학습의 완성입니다.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 32: Week 1 Deliverables -->
+      <div class="slide" id="slide32">
+        <h2 class="slide-title">이번 주 결과물 체크리스트</h2>
+        <div class="grid grid--3">
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">📁</p>
+            <h3 class="card-title">업무 폴더 구조</h3>
+            <p class="card-desc">input / output / reference<br>AI 친화적 구조 완성</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">📊</p>
+            <h3 class="card-title">업무 구조 다이어그램</h3>
+            <p class="card-desc">Mermaid로 시각화한<br>나의 업무 흐름</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">🤖</p>
+            <h3 class="card-title">Gemini CLI 경험</h3>
+            <p class="card-desc">터미널에서 AI와<br>대화해본 경험</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 33: Homework -->
+      <div class="slide" id="slide33">
+        <h2 class="slide-title">이번 주 숙제</h2>
+        <p class="slide-subtitle">3/16(월) 자정까지 제출 · 10~15분이면 완료!</p>
+        <div class="card" style="border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.08);">
+          <h3 class="card-title" style="color:var(--accent);">상황별 자기소개 (md 파일)</h3>
+          <p class="card-desc" style="font-size:19px;">
+            AI와 함께 <strong>상황별·분량별 자기소개</strong>를 만들어서 md 파일로 디스코드에 올려주세요!
+          </p>
+          <div class="table-wrap" style="margin-top:12px;">
+            <table>
+              <thead><tr><th>분량</th><th>상황</th><th>예시</th></tr></thead>
+              <tbody>
+                <tr><td><strong>100자</strong></td><td>명함·프로필</td><td>핵심 한 줄 소개</td></tr>
+                <tr><td><strong>200자</strong></td><td>세미나·네트워킹</td><td>역할 + 관심사 + 한마디</td></tr>
+                <tr><td><strong>300자</strong></td><td>포트폴리오·이력서</td><td>경험 + 성과 + 방향성</td></tr>
+                <tr><td><strong>자유</strong></td><td>디스코드 자기소개</td><td>편하게! 나를 표현하는 글</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mini-note" style="margin-top:10px;">
+            Tip: Gemini에게 "나는 [직업]이야. 상황별로 자기소개를 만들어줘. 100자, 200자, 300자 버전으로" 요청해보세요!
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 34: Learning Pyramid Recap -->
+      <div class="slide" id="slide34">
+        <h2 class="slide-title">다시 한번: 거꾸로학습법</h2>
+        <p class="slide-subtitle">이 스터디는 "듣는 수업"이 아니라 "하는 수업"입니다</p>
+        <div class="grid grid--2">
+          <div class="card">
+            <h3 class="card-title">수동적 학습 (낮은 유지율)</h3>
+            <div class="table-wrap" style="margin-top:8px;">
+              <table>
+                <tr><td>강의 듣기</td><td style="color:#ef4444;">5%</td></tr>
+                <tr><td>읽기</td><td style="color:#f97316;">10%</td></tr>
+                <tr><td>시청각</td><td style="color:#eab308;">20%</td></tr>
+                <tr><td>시연 보기</td><td style="color:#84cc16;">30%</td></tr>
+              </table>
+            </div>
+          </div>
+          <div class="card" style="border-color:rgba(59,130,246,.5);">
+            <h3 class="card-title" style="color:var(--accent);">능동적 학습 (높은 유지율)</h3>
+            <div class="table-wrap" style="margin-top:8px;">
+              <table>
+                <tr><td>토론</td><td style="color:#22c55e;">50%</td></tr>
+                <tr><td>직접 실습</td><td style="color:#14b8a6;"><strong>75%</strong></td></tr>
+                <tr style="background:rgba(59,130,246,.12);"><td><strong>다른 사람에게 가르치기</strong></td><td style="color:var(--accent);"><strong>90%</strong></td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">매주 <strong>실습</strong>하고 <strong>발표</strong>하는 이유입니다.<br>들으면 잊지만, 가르치면 체득합니다. 4주 후 여러분이 달라져 있을 겁니다.</p>
+        </div>
+      </div>
+
+      <!-- Slide 35: Next Week Preview -->
+      <div class="slide" id="slide35">
+        <h2 class="slide-title">다음 주 예고</h2>
+        <p class="slide-subtitle">Week 2: 바이브코딩 & 실전 에이전트</p>
+        <div class="grid grid--3">
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">💬</p>
+            <h3 class="card-title">바이브코딩</h3>
+            <p class="card-desc">말로 설명하면 AI가<br>결과물을 만들어줍니다</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">📄</p>
+            <h3 class="card-title">HTML 슬라이드</h3>
+            <p class="card-desc">자연어로 슬라이드/리포트를<br>직접 만들어봅니다</p>
+          </div>
+          <div class="card" style="text-align:center;">
+            <p style="font-size:40px;margin-bottom:10px;">🤖</p>
+            <h3 class="card-title">두 번째 에이전트</h3>
+            <p class="card-desc">PRD를 배우고<br>두 번째 에이전트를 따라 만듭니다</p>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <p class="text">"코딩을 배우는 게 아닙니다. 내가 원하는 것을 말로 설명하는 연습입니다."</p>
+        </div>
+      </div>
+
+      <!-- Slide 36: Closing Message -->
+      <div class="slide" id="slide36">
+        <div class="center-content">
+          <p class="kicker" style="font-size:16px;">핵심 메시지</p>
+          <h2 style="font-size:44px;line-height:1.5;max-width:1000px;">
+            "AI에게 좋은 결과를 받으려면,<br>
+            먼저 내 업무를 잘 정리해야 합니다.<br><br>
+            <span style="color:var(--accent);">기록하고, 질문하고, 구조화하는 것이<br>AI 시대의 기본기입니다.</span>"
+          </h2>
+        </div>
+      </div>
+
+      <!-- Slide 37: Q&A -->
+      <div class="slide" id="slide37">
+        <div class="center-content">
+          <h2 style="font-size:110px;letter-spacing:-.03em;">Q&A</h2>
+          <p style="font-size:28px;color:var(--text-secondary);">궁금한 거 있으시면 편하게 질문해 주세요</p>
+          <p style="font-size:18px;color:var(--text-muted);margin-top:12px;">수업 녹화본이 제공됩니다 · 디스코드에서 언제든 질문 가능</p>
+        </div>
+      </div>
+
+    </div><!-- /slides-wrap -->
+
+    <!-- ══════ Bottom Controls ══════ -->
+    <div class="bottom-controls">
+      <button class="nav-btn" id="prevBtn" aria-label="이전 슬라이드">&#8592;</button>
+      <div class="slide-counter" id="slideCounter">1 / 37</div>
+      <button class="nav-btn" id="nextBtn" aria-label="다음 슬라이드">&#8594;</button>
+    </div>
+    <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+
+  </div><!-- /presentation -->
+
+  <canvas id="pen-overlay" class="pen-overlay"></canvas>
+
+  <script>
+  (function(){
+    var total = 37;
+    var sectionStarts = [1,5,8,15,20,25,30];
+    var chips = Array.from(document.querySelectorAll('.section-chip'));
+    var counter = document.getElementById('slideCounter');
+    var bar = document.getElementById('progressBar');
+    var cur = 1;
+    var bc = null;
+
+    // Pen overlay setup
+    var penOverlay = document.getElementById('pen-overlay');
+    var penOvCtx = penOverlay.getContext('2d');
+    function initPenOverlay() {
+      penOverlay.width = window.innerWidth;
+      penOverlay.height = window.innerHeight;
+      penOvCtx.strokeStyle = '#ff4444';
+      penOvCtx.lineWidth = 4;
+      penOvCtx.lineCap = 'round';
+      penOvCtx.lineJoin = 'round';
+    }
+    initPenOverlay();
+    window.addEventListener('resize', initPenOverlay);
+
+    // BroadcastChannel for sync
+    if ('BroadcastChannel' in window) {
+      bc = new BroadcastChannel('presentation-sync');
+      bc.onmessage = function(event) {
+        var data = event.data || {};
+        if (data.type === 'slideChange' && Number.isInteger(data.slide)) {
+          if (data.slide !== cur) goToSlide(data.slide, true, false);
+        }
+        if (data.type === 'elementHighlight' && Number.isInteger(data.index) && Number.isInteger(data.slideNo)) {
+          var slide = document.getElementById('slide' + data.slideNo);
+          if (!slide) return;
+          var allEls = Array.from(slide.querySelectorAll('*'));
+          var target = allEls[data.index];
+          applySpotlight(target);
+        }
+        // Pen drawing from script view
+        if (data.type === 'penStart') {
+          penOvCtx.beginPath();
+          penOvCtx.moveTo(data.x / 1920 * penOverlay.width, data.y / 1080 * penOverlay.height);
+        }
+        if (data.type === 'penMove') {
+          penOvCtx.lineTo(data.x / 1920 * penOverlay.width, data.y / 1080 * penOverlay.height);
+          penOvCtx.stroke();
+        }
+        if (data.type === 'penClear') {
+          penOvCtx.clearRect(0, 0, penOverlay.width, penOverlay.height);
+        }
+      };
+    }
+
+    function clamp(n){ return Math.min(total, Math.max(1, Math.floor(n))); }
+
+    function secIdx(n){
+      var idx=0;
+      for(var i=0;i<sectionStarts.length;i++) if(n>=sectionStarts[i]) idx=i;
+      return idx;
+    }
+
+    function goToSlide(n, hash, broadcast){
+      if(broadcast === undefined) broadcast = true;
+      var t = clamp(n);
+      var old = document.getElementById('slide'+cur);
+      var next = document.getElementById('slide'+t);
+      if(!next) return;
+      if(old) old.classList.remove('active');
+      next.classList.add('active');
+      cur = t;
+      // Clear pen on slide change
+      penOvCtx.clearRect(0, 0, penOverlay.width, penOverlay.height);
+      counter.textContent = cur + ' / ' + total;
+      bar.style.width = ((cur-1)/(total-1)*100).toFixed(2)+'%';
+      chips.forEach(function(c,i){ c.classList.toggle('active', i===secIdx(cur)); });
+      if(hash) history.replaceState(null,'','#'+cur);
+      if(broadcast && bc) bc.postMessage({ type: 'slideChange', slide: cur });
+    }
+
+    // Spotlight: find best target element
+    function findSpotlightTarget(el) {
+      if (!el) return null;
+      var box = el.closest('.card, .highlight-box, article, .compare-item, .flow-item, .step, .puzzle-piece');
+      if (box && !box.classList.contains('slide')) return box;
+      var styledDiv = el.closest('div[style]');
+      if (styledDiv && styledDiv.style.background && !styledDiv.classList.contains('slide')) {
+        if (!styledDiv.querySelector('.card, article, .highlight-box')) return styledDiv;
+      }
+      return el.closest('.slide-title, .slide-subtitle, .section-divider-title, .section-divider-desc, p, h2, h3, li, td, code') || el;
+    }
+
+    function applySpotlight(target) {
+      if (!target || target.classList.contains('slide')) return;
+      target.classList.remove('spotlight');
+      void target.offsetWidth;
+      target.classList.add('spotlight');
+      target.addEventListener('animationend', function() {
+        target.classList.remove('spotlight');
+      }, { once: true });
+    }
+
+    // Click on slide elements to highlight them
+    document.querySelector('.slides-wrap').addEventListener('click', function(e) {
+      var target = findSpotlightTarget(e.target);
+      if (!target || target.classList.contains('slide')) return;
+      applySpotlight(target);
+      // Broadcast element highlight to script view
+      var slide = document.getElementById('slide' + cur);
+      if (slide && bc) {
+        var allEls = Array.from(slide.querySelectorAll('*'));
+        var idx = allEls.indexOf(target);
+        bc.postMessage({ type: 'elementHighlight', slideNo: cur, index: idx });
+      }
+    });
+
+    // Receive spotlight click from iframe parent (스크립트_자막.html)
+    window.addEventListener('message', function(event) {
+      var data = event.data || {};
+      if (data.type === 'spotlightClick') {
+        var el = document.elementFromPoint(data.x, data.y);
+        var target = findSpotlightTarget(el);
+        if (!target || target.classList.contains('slide')) return;
+        applySpotlight(target);
+        var slide = document.getElementById('slide' + cur);
+        if (slide && bc) {
+          var allEls = Array.from(slide.querySelectorAll('*'));
+          var idx = allEls.indexOf(target);
+          bc.postMessage({ type: 'elementHighlight', slideNo: cur, index: idx });
+        }
+      }
+      if (data.type === 'slideChange' && data.slide !== cur) {
+        goToSlide(data.slide, true, false);
+      }
+    });
+
+    document.getElementById('prevBtn').addEventListener('click', function(){ goToSlide(cur-1,true); });
+    document.getElementById('nextBtn').addEventListener('click', function(){ goToSlide(cur+1,true); });
+    chips.forEach(function(c){ c.addEventListener('click', function(){ goToSlide(+c.dataset.slide,true); }); });
+
+    document.addEventListener('keydown', function(e){
+      if(e.key==='ArrowRight'||e.key===' '||e.key==='Enter'){ e.preventDefault(); goToSlide(cur+1,true); }
+      else if(e.key==='ArrowLeft'){ e.preventDefault(); goToSlide(cur-1,true); }
+    });
+
+    window.addEventListener('hashchange', function(){
+      var h = parseInt(location.hash.replace('#',''),10);
+      if(h && h!==cur) goToSlide(h, false, false);
+    });
+
+    var h = parseInt(location.hash.replace('#',''),10);
+    goToSlide(h||1, true, false);
+  })();
+  </script>
+</body>
+</html>
